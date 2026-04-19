@@ -18,4 +18,4 @@ COPY . .
 # Pre-download the YOLO model so it's baked into the image
 RUN python -c "from ultralytics import YOLO; YOLO('yolo11n-pose.pt')"
 
-CMD ["python", "run.py"]
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
