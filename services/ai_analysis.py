@@ -1,3 +1,4 @@
+import os
 import anthropic
 import json
 from models.schemas import RepData, AIFeedback
@@ -31,7 +32,8 @@ A good overhead squat has knee angles <100° at bottom, bilateral symmetry withi
 
 
 def analyze_with_claude(reps: list[RepData], exercise: str) -> AIFeedback:
-    client = anthropic.Anthropic()
+    api_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    client = anthropic.Anthropic(api_key=api_key)
 
     rep_summary = build_rep_summary(reps, exercise)
 
