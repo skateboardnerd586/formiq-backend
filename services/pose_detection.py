@@ -7,7 +7,10 @@ import numpy as np
 from ultralytics import YOLO
 from models.schemas import RepData
 
-MODEL_PATH = "yolo11n-pose.pt"
+os.environ.setdefault("YOLO_CONFIG_DIR", "/app/models")
+
+MODEL_DIR = "/app/models"
+MODEL_PATH = os.path.join(MODEL_DIR, "yolo11n-pose.pt")
 _model = None
 
 ROTATE_MAP = {
@@ -20,6 +23,7 @@ ROTATE_MAP = {
 def get_model():
     global _model
     if _model is None:
+        os.makedirs(MODEL_DIR, exist_ok=True)
         _model = YOLO(MODEL_PATH)
     return _model
 
