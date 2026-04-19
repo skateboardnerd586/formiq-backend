@@ -3,6 +3,7 @@ uvicorn[standard]
 python-multipart
 anthropic
 ultralytics
+lap>=0.5.12
 opencv-python-headless
 numpy
 pydantic
