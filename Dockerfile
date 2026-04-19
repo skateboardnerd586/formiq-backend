@@ -6,9 +6,16 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Install CPU-only torch first to avoid pulling the 2GB GPU build
+RUN pip install --no-cache-dir \
+    torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Pre-download the YOLO model so it's baked into the image
+RUN python -c "from ultralytics import YOLO; YOLO('yolo11n-pose.pt')"
 
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
