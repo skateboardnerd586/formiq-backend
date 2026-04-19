@@ -27,4 +27,7 @@ COPY --from=exporter /build/yolo11n-pose.onnx ./yolo11n-pose.onnx
 
 COPY . .
 
+ENV PORT=7860
+EXPOSE 7860
+
 CMD ["python", "run.py"]
