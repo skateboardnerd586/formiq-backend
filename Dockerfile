@@ -15,7 +15,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Pre-download the YOLO model so it's baked into the image
-RUN python -c "from ultralytics import YOLO; YOLO('yolo11n-pose.pt')"
-
 CMD ["python", "run.py"]
