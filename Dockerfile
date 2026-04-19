@@ -18,6 +18,4 @@ COPY . .
 # Pre-download the YOLO model so it's baked into the image
 RUN python -c "from ultralytics import YOLO; YOLO('yolo11n-pose.pt')"
 
-COPY start.sh .
-RUN chmod +x start.sh
-CMD ["./start.sh"]
+CMD ["/bin/bash", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT"]
