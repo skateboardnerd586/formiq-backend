@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+anthropic
+ultralytics
+opencv-python-headless
+numpy
+pydantic
+av
+python-dotenv
