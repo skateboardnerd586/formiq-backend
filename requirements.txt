@@ -2,7 +2,9 @@ fastapi
 uvicorn[standard]
 python-multipart
 anthropic
-onnxruntime
+ultralytics
+torch
+torchvision
 opencv-python-headless
 numpy
 pydantic

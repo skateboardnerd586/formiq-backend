@@ -5,10 +5,10 @@ import uuid
 import cv2
 import av
 import numpy as np
-import onnxruntime as ort
+from ultralytics import YOLO
 from models.schemas import RepData
 
-MODEL_PATH = "yolo11n-pose.onnx"
+MODEL_PATH = "yolo11n-pose.pt"
 INPUT_SIZE = 640
 CONF_THRESHOLD = 0.25
 KP_CONF_THRESHOLD = 0.5
@@ -27,58 +27,28 @@ ROTATE_MAP = {
     270: cv2.ROTATE_90_COUNTERCLOCKWISE,
 }
 
-_session: ort.InferenceSession | None = None
-_input_name: str | None = None
+_model: YOLO | None = None
 
 
-def get_session() -> ort.InferenceSession:
-    global _session, _input_name
-    if _session is None:
-        so = ort.SessionOptions()
-        so.intra_op_num_threads = 1
-        so.inter_op_num_threads = 1
-        so.enable_mem_pattern = False
-        so.enable_cpu_mem_arena = False
-        so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
-        _session = ort.InferenceSession(
-            MODEL_PATH, sess_options=so, providers=["CPUExecutionProvider"]
-        )
-        _input_name = _session.get_inputs()[0].name
-    return _session
+def get_session() -> YOLO:
+    global _model
+    if _model is None:
+        _model = YOLO(MODEL_PATH)
+    return _model
 
 
-def _letterbox(img: np.ndarray, size: int = INPUT_SIZE):
-    h, w = img.shape[:2]
-    r = min(size / h, size / w)
-    new_w, new_h = int(round(w * r)), int(round(h * r))
-    resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-    pad_w, pad_h = size - new_w, size - new_h
-    top, left = pad_h // 2, pad_w // 2
-    bottom, right = pad_h - top, pad_w - left
-    padded = cv2.copyMakeBorder(
-        resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-    )
-    return padded, r, left, top
-
-
-def _infer(session: ort.InferenceSession, frame: np.ndarray) -> np.ndarray | None:
-    padded, r, pad_x, pad_y = _letterbox(frame)
-    x = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-    x = np.ascontiguousarray(x.transpose(2, 0, 1)[None])  # [1, 3, 640, 640]
-
-    outputs = session.run(None, {_input_name: x})
-    preds = outputs[0][0].T  # [num_anchors, 56] = (cx, cy, w, h, conf, 17*3)
-
-    conf = preds[:, 4]
-    mask = conf > CONF_THRESHOLD
-    preds = preds[mask]
-    if len(preds) == 0:
+def _infer(model: YOLO, frame: np.ndarray) -> np.ndarray | None:
+    results = model(frame, imgsz=INPUT_SIZE, conf=CONF_THRESHOLD, verbose=False)
+    if not results or results[0].keypoints is None:
         return None
 
-    best = preds[preds[:, 4].argmax()]
-    kpts = best[5:].reshape(17, 3).copy()
-    kpts[:, 0] = (kpts[:, 0] - pad_x) / r
-    kpts[:, 1] = (kpts[:, 1] - pad_y) / r
+    kpts_data = results[0].keypoints.data  # tensor [N, 17, 3]
+    if kpts_data.shape[0] == 0:
+        return None
+
+    # Pick the detection with the highest mean keypoint confidence
+    best_idx = int(kpts_data[:, :, 2].mean(dim=1).argmax())
+    kpts = kpts_data[best_idx].cpu().numpy().copy()  # [17, 3] (x, y, conf)
     return kpts
 
 
@@ -160,7 +130,7 @@ def _write_h264(frames: list, out_path: str, fps: int = 4) -> None:
 
 
 def run_pose_detection(video_path: str, exercise: str, rotation: int = 0) -> tuple[list[RepData], str]:
-    session = get_session()
+    model = get_session()
 
     if rotation == 0:
         cap_check = cv2.VideoCapture(video_path)
@@ -199,7 +169,7 @@ def run_pose_detection(video_path: str, exercise: str, rotation: int = 0) -> tup
         if rotate_code is not None:
             frame = cv2.rotate(frame, rotate_code)
 
-        kpts = _infer(session, frame)
+        kpts = _infer(model, frame)
         base = frame.copy()
 
         angles: dict = {}
